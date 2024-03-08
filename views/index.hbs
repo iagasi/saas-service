@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>App</title>
+</head>
+
+<body>
+    <style>
+        .main {
+            display: flex;
+            flex-direction: column;
+align-items: center;
+            background-color: rgb(238, 224, 251);
+            height: 100vh;
+            padding-top: 100px;
+        }
+
+        .desc {
+            text-align: center;
+        }
+
+        .btn {
+            background-color: rgb(72, 72, 233);
+            color: bisque;
+            font-size: large;
+            cursor: pointer;
+            padding: 15px;
+            width: 50%;
+
+        }
+
+        .btn:hover {
+            background-color: rgb(49, 49, 238);
+        }
+
+        .sucess{
+            color: rgb(9, 149, 9);
+        }
+    </style>
+    <main class="main">
+
+        <h1 class="desc">{{description}}</h1>
+        <h4 class="desc"> Company email: {{email}}</h4>
+
+        <button onclick="activate()" class="btn"> Activate </button>
+        <h1  class="desc sucess" id="output"></h1>
+
+    </main>
+    <script>
+        function activate() {
+
+            const outputDiv = document.getElementById("output");
+
+            const url = "{{url}}"
+            fetch(url, { method: "PATCH" })
+                .then((response) => response.json())
+                .then((data) => { outputDiv.innerHTML=data.message })
+                .catch(e => { console.log(error) });
+
+
+        }
+    </script>
+
+</body>
+
+</html>
