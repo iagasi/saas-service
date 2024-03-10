@@ -12,16 +12,34 @@ import { CompanyService } from './company.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { HOST, PORT } from 'src/constants';
-
+import { LoginDto } from 'src/dto/login.dto';
+import { SkipJwtAuth } from 'src/decorators/skip.decorator';
+import { CreateUserDto } from 'src/user/dto/create-user.dto';
+import { ICompanyDb } from 'src/interfaces/company';
+import { AdminOnly } from 'src/decorators/admin.dcorator';
 @Controller('company')
 export class CompanyController {
   constructor(private readonly companyService: CompanyService) {}
 
   @Post()
+  @SkipJwtAuth()
   create(@Body() createCompanyDto: CreateCompanyDto) {
     return this.companyService.create(createCompanyDto);
   }
 
+  @Post('/login')
+  @SkipJwtAuth()
+  login(@Body() createCompanyDto: LoginDto) {
+    return this.companyService.login(createCompanyDto);
+  }
+  @Post('/user')
+  createUser(
+    @Body() createUserDto: CreateUserDto,
+
+    @AdminOnly() company: ICompanyDb,
+  ) {
+    return this.companyService.createUser(createUserDto, company);
+  }
   @Get()
   findAll() {
     return this.companyService.findAll();

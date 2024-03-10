@@ -3,14 +3,17 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CompanyModule } from './company/company.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { configService } from './app.config';
+import { connectionOptions } from './app.config';
+import { UserModule } from './user/user.module';
+
 @Module({
   imports: [
     CompanyModule,
     TypeOrmModule.forRoot({
-      ...configService.getTypeOrmConfig(),
+      ...connectionOptions,
       autoLoadEntities: true,
     }),
+    UserModule,
   ],
   controllers: [AppController],
   providers: [AppService],

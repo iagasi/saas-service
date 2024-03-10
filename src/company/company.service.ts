@@ -1,8 +1,10 @@
 import {
+  BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
@@ -12,12 +14,16 @@ import { Repository } from 'typeorm';
 import { emailservice } from 'src/utils/sendEmail';
 import { HOST, PORT } from 'src/constants';
 import { SucessResponse } from 'src/responses/sucessResponse';
+import { LoginDto } from 'src/dto/login.dto';
+import { generateHash, generateTokens } from 'src/utils/bcrypt.util';
+import { CreateUserDto } from 'src/user/dto/create-user.dto';
+import { ICompanyDb } from 'src/interfaces/company';
 
 @Injectable()
 export class CompanyService {
   constructor(
     @InjectRepository(Company)
-    public companyRepository: Repository<Company>,
+    private companyRepository: Repository<Company>,
   ) {}
   private async findByEmail(email: string): Promise<Company> | never {
     const company = await this.companyRepository.findOne({
@@ -25,6 +31,9 @@ export class CompanyService {
     });
 
     return company;
+  }
+  async createUser(user: CreateUserDto, company: ICompanyDb) {
+    return null;
   }
   async create(createCompanyDto: CreateCompanyDto) {
     const company = await this.findByEmail(createCompanyDto.email);
@@ -35,15 +44,47 @@ export class CompanyService {
           '--already exists',
       );
     }
+
+    try {
+      const hashedPassword = await generateHash(createCompanyDto.password);
+
+      createCompanyDto.password = hashedPassword;
+      await this.sendActivationEmail(
+        createCompanyDto.email,
+        'nameagasi@gmail.com',
+      );
+      const created = await this.companyRepository.save(createCompanyDto);
+      return new SucessResponse(
+        'Registered check email to ACTIVATE!!',
+        created,
+      );
+    } catch (e) {
+      throw new BadRequestException(e.message);
+    }
+  }
+  private async sendActivationEmail(companyEmail: string, toEmail: string) {
     await emailservice(
       'Company Activation',
-      `http://${HOST}:${PORT}/company/activate/` + createCompanyDto.email,
-      'nameagasi@gmail.com',
+      `http://${HOST}:${PORT}/company/activate/` + companyEmail,
+      toEmail,
     );
-    const created = await this.companyRepository.save(createCompanyDto);
-    return new SucessResponse('Registered check email to ACTIVATE!!', created);
   }
-
+  async login(loginDto: LoginDto) {
+    const company = await this.findByEmail(loginDto.email);
+    if (!company) throw new NotFoundException('Company is not registered');
+    if (!company.active) {
+      this.sendActivationEmail(loginDto.email, 'nameagasi@gmail.com');
+      throw new ForbiddenException(
+        'Accaunt not Activated an Additional email send too---' +
+          loginDto.email,
+      );
+    }
+    const tokens = await generateTokens(loginDto.password, company);
+    if (!tokens) {
+      throw new UnauthorizedException('email or pasword not correct');
+    }
+    return new SucessResponse('ok', tokens);
+  }
   async findAll() {
     return await this.companyRepository.find();
   }

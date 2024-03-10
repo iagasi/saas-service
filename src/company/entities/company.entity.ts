@@ -1,5 +1,12 @@
 import { ICompanyDb } from '../../interfaces/company';
-import { Entity, PrimaryGeneratedColumn, Column, Unique } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToOne,
+  JoinColumn,
+} from 'typeorm';
+import { Subscription } from './subscription.entity';
 
 @Entity()
 export class Company implements ICompanyDb {
@@ -16,7 +23,11 @@ export class Company implements ICompanyDb {
   @Column({ default: false })
   active: boolean;
   @Column({ default: null })
+  @OneToOne(() => Subscription)
+  @JoinColumn()
   subscription: string;
   @Column()
   industry: string;
+  @Column({ default: 'ADMIN' })
+  role: string;
 }

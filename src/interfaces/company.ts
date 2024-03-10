@@ -7,4 +7,5 @@ export interface ICompanyDb {
   active: boolean;
   subscription: string;
   industry: string;
+  role: string;
 }
