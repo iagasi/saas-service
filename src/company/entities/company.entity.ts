@@ -1,15 +1,19 @@
-import { ICompanyDb } from '../../interfaces/company';
 import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
   OneToOne,
   JoinColumn,
+  OneToMany,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
-import { Subscription } from './subscription.entity';
+import { Subscription } from '../../subscription/entities/subscription.entity';
+import { File } from 'src/employee/entities/file.entyty';
+import { Employee } from 'src/employee/entities/employee.entity';
 
 @Entity()
-export class Company implements ICompanyDb {
+export class Company {
   @PrimaryGeneratedColumn()
   id: string;
   @Column()
@@ -22,12 +26,22 @@ export class Company implements ICompanyDb {
   password: string;
   @Column({ default: false })
   active: boolean;
-  @Column({ default: null })
-  @OneToOne(() => Subscription)
-  @JoinColumn()
-  subscription: string;
+
   @Column()
   industry: string;
   @Column({ default: 'ADMIN' })
   role: string;
+  @Column('decimal', { default: 10000 })
+  ballance: number;
+
+  @OneToMany(() => File, (file) => file.company)
+  files: File[];
+
+  @ManyToMany(() => Employee, (e) => e.company)
+  @JoinTable()
+  employees: Employee[];
+
+  @OneToOne(() => Subscription)
+  @JoinColumn()
+  subscription: Subscription;
 }

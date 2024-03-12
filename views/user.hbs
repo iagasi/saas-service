@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>App</title>
+</head>
+
+<body>
+    <style>
+        .main {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: rgb(238, 224, 251);
+            height: 100vh;
+            padding-top: 100px;
+        }
+
+        .desc {
+            text-align: center;
+        }
+
+        .btn {
+            background-color: rgb(72, 72, 233);
+            color: bisque;
+            font-size: large;
+            cursor: pointer;
+            padding: 15px;
+            width: 50%;
+
+        }
+
+        .btn:hover {
+            background-color: rgb(49, 49, 238);
+        }
+
+        .sucess {
+            color: rgb(9, 149, 9);
+        }
+
+        .error {
+            color: red;
+        }
+
+        .password {
+            display: flex;
+            width: 50%;
+            justify-content: space-between;
+            height: 30px;
+            padding-bottom: 20px;
+        }
+    </style>
+    <main class="main">
+
+        <h1 class="desc">{{description}}</h1>
+        <h4 class="desc"> Your Email email: {{email}}</h4>
+        <div class=" password">
+            <h5>Password</h5>
+            <input id="p1" type="password" minlength="6" />
+
+        </div>
+        <div class=" password">
+            <h5>Confirm Password</h5>
+            <input id="p2" type="password" minlength="6" />
+
+        </div>
+        <button onclick="activate()" class="btn"> Activate </button>
+        <h1 class="desc sucess" id="output"></h1>
+        <h2 class="desc error" id="outputErr"></h2>
+
+    </main>
+    <script>
+        function activate() {
+
+            const outputDiv = document.getElementById("output");
+            const errDiv = document.getElementById("outputErr");
+
+            const p1 = document.getElementById("p1").value;
+            const p2 = document.getElementById("p2").value;
+            console.log(p1)
+            if (p1 !== p2) {
+                errDiv.innerHTML = "Passwords Mismath"
+                return
+            }
+            if (p1.length < 6 || p2.length < 6) {
+                errDiv.innerHTML = "Passwords length mystbe grater 6"
+                return
+            }
+            errDiv.innerHTML = ""
+            const url = "{{url}}"
+            const body = JSON.stringify({ password: p1 })
+            const x = JSON.parse(body)
+
+
+            fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json", }, body: body, })
+                .then((response) => response.json())
+                .then((data) => { if (data.message) { outputDiv.innerHTML = data.message } })
+                .catch(e => { if (e.messge) { errDiv.innerHTML = e.message } });
+
+
+        }
+    </script>
+
+</body>
+
+</html>

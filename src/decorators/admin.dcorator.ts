@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ExecutionContext,
+  ForbiddenException,
   createParamDecorator,
 } from '@nestjs/common';
 import { ICompanyDb } from 'src/interfaces/company';
@@ -9,12 +10,14 @@ export const AdminOnly = createParamDecorator(
     const request: any = ctx.switchToHttp().getRequest();
 
     const user: ICompanyDb = request.user;
-    console.log(user);
-
-    if (user.role! == 'ADMIN') {
-      throw new BadRequestException('Company Admin Only!!!');
+    if (!user.active) {
+      throw new ForbiddenException('Accaunt not activated check email');
     }
 
-    return true;
+    if (user.role !== 'ADMIN') {
+      throw new BadRequestException('Compansy Admin Only!!!');
+    }
+
+    return user;
   },
 );

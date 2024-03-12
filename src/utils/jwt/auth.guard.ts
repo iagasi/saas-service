@@ -13,7 +13,6 @@ export class AuthGuard extends PassportAuthGaurd('jwt') {
       'isPublic',
       context.getHandler(),
     );
-    console.log('here');
 
     if (isPublic) {
       return true;

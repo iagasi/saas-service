@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   Render,
+  NotFoundException,
 } from '@nestjs/common';
 import { CompanyService } from './company.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
@@ -14,9 +15,9 @@ import { UpdateCompanyDto } from './dto/update-company.dto';
 import { HOST, PORT } from 'src/constants';
 import { LoginDto } from 'src/dto/login.dto';
 import { SkipJwtAuth } from 'src/decorators/skip.decorator';
-import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import { ICompanyDb } from 'src/interfaces/company';
 import { AdminOnly } from 'src/decorators/admin.dcorator';
+import { CreateEmployeeDto } from 'src/employee/dto/create-employee.dto';
 @Controller('company')
 export class CompanyController {
   constructor(private readonly companyService: CompanyService) {}
@@ -32,13 +33,25 @@ export class CompanyController {
   login(@Body() createCompanyDto: LoginDto) {
     return this.companyService.login(createCompanyDto);
   }
-  @Post('/user')
+  //
+  @Post('/employee')
   createUser(
-    @Body() createUserDto: CreateUserDto,
-
+    @Body() createUserDto: CreateEmployeeDto,
     @AdminOnly() company: ICompanyDb,
   ) {
-    return this.companyService.createUser(createUserDto, company);
+    return this.companyService.createEmployee(createUserDto, company);
+  }
+
+  @Patch('/subscribe/:id')
+  updateSubscriptions(
+    @Param('id') id: ICompanyDb['subscription'],
+    @AdminOnly() company: ICompanyDb,
+  ) {
+    return this.companyService.updateSubscription(company, id);
+  }
+  @Get('/subscribe')
+  getSubscription(@AdminOnly() company: ICompanyDb) {
+    return this.companyService.getSubscription(company);
   }
   @Get()
   findAll() {
@@ -46,16 +59,27 @@ export class CompanyController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.companyService.findOne(id);
+  async findOne(@Param('id') id: string) {
+    const company = await this.companyService.findOne(id);
+    console.log(company);
+
+    if (!company) {
+      throw new NotFoundException('Company with id  ' + id + '  NOT found');
+    }
+    return company;
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCompanyDto: UpdateCompanyDto) {
-    return this.companyService.update(id, updateCompanyDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateCompanyDto: UpdateCompanyDto,
+    @AdminOnly() company: ICompanyDb,
+  ) {
+    return this.companyService.update(id, updateCompanyDto, company);
   }
 
   @Get('activate/:email')
+  @SkipJwtAuth()
   @Render('index')
   activatePage(@Param('email') email: string) {
     return {
@@ -65,6 +89,7 @@ export class CompanyController {
     };
   }
   @Patch('activate/:email')
+  @SkipJwtAuth()
   activate(@Param('email') email: string) {
     return this.companyService.activate(email);
   }
