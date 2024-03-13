@@ -9,3 +9,7 @@ export const DB_PORT = process.env.PG_PORT;
 export const DB_PASSWORD = process.env.PG_PASSWORD;
 export const SECRET_JWT = process.env.SECRET_JWT;
 export const SALT = process.env.SALT;
+
+export const PREMIUMSUB = 'Premium';
+export const BASICSUB = 'Basic';
+export const FREESUB = 'Free';

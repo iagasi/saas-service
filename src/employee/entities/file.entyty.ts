@@ -1,12 +1,9 @@
-import { IEmployeeDb } from 'src/interfaces/employee';
 import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  JoinColumn,
-  OneToOne,
-  OneToMany,
   ManyToOne,
+  ManyToMany,
 } from 'typeorm';
 import { Company } from 'src/company/entities/company.entity';
 import { Employee } from './employee.entity';
@@ -25,4 +22,8 @@ export class File {
 
   @ManyToOne(() => Employee, (employe) => employe.files)
   employee: Employee;
+  @Column('varchar', { array: true })
+  allowed: string[];
+  @Column({ default: true })
+  public: boolean;
 }

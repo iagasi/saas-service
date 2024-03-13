@@ -53,12 +53,12 @@ export class CompanyController {
   getSubscription(@AdminOnly() company: ICompanyDb) {
     return this.companyService.getSubscription(company);
   }
-  @Get()
+  @Get('/all')
   findAll() {
     return this.companyService.findAll();
   }
 
-  @Get(':id')
+  @Get()
   async findOne(@Param('id') id: string) {
     const company = await this.companyService.findOne(id);
     console.log(company);

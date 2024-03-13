@@ -11,7 +11,7 @@ export class Subscription {
   price: number;
   @Column()
   files_amount: number;
-  @Column()
+  @Column({ nullable: true })
   users_amount: number;
   @Column('decimal', { precision: 5, scale: 2 })
   exceeded_amount_price: number;

@@ -11,6 +11,7 @@ import {
 import { Subscription } from '../../subscription/entities/subscription.entity';
 import { File } from 'src/employee/entities/file.entyty';
 import { Employee } from 'src/employee/entities/employee.entity';
+import { Purchasedsubscription } from 'src/subscription/entities/purchased-subscription.entity';
 
 @Entity()
 export class Company {
@@ -44,4 +45,7 @@ export class Company {
   @OneToOne(() => Subscription)
   @JoinColumn()
   subscription: Subscription;
+  @OneToOne(() => Purchasedsubscription)
+  @JoinColumn()
+  curr_subscription: Purchasedsubscription;
 }

@@ -1,7 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -13,7 +18,16 @@ import { File } from './entities/file.entyty';
 import { Company } from 'src/company/entities/company.entity';
 import { SucessResponse } from 'src/responses/sucessResponse';
 import { ActivateEmployeeDto } from './dto/activate-emplotee.dto';
-import { generateHash } from 'src/utils/bcrypt.util';
+import { generateHash, generateTokens } from 'src/utils/bcrypt.util';
+import { LoginEmployeeDto } from './dto/login.employee.dto';
+import { userActivationEmail } from 'src/company/company.service';
+import { IEmployeeDb } from 'src/interfaces/employee';
+import { UploadFileDto } from './dto/upload.file.dto';
+import { writeFile, writeFileSync } from 'fs';
+import * as path from 'path';
+import * as uuid from 'uuid-random';
+import { promisify } from 'util';
+import { HOST, PORT, PREMIUMSUB } from 'src/constants';
 
 @Injectable()
 export class EmployeeService {
@@ -23,7 +37,26 @@ export class EmployeeService {
 
     @InjectRepository(File)
     private fileDb: Repository<File>,
+    @InjectRepository(Company)
+    private companyDB: Repository<Company>,
   ) {}
+
+  async login(loginDto: LoginEmployeeDto) {
+    const user = await this.findByEmail(loginDto.email);
+    if (!user) throw new NotFoundException('Company is not registered');
+    if (!user.active) {
+      userActivationEmail(loginDto.email, loginDto.email, ' company');
+      throw new ForbiddenException(
+        'Account not Activated an Additional email send too---' +
+          loginDto.email,
+      );
+    }
+    const tokens = await generateTokens(loginDto.password, user);
+    if (!tokens) {
+      throw new UnauthorizedException('email or pasword not correct');
+    }
+    return new SucessResponse('ok', tokens);
+  }
   async create(createEmployeeDto: CreateEmployeeDto, company: Company) {
     try {
       const employee = this.employeeDb.create({
@@ -38,9 +71,6 @@ export class EmployeeService {
     }
   }
 
-  async findAll() {
-    return await this.employeeDb.find();
-  }
   async findAllEmployeesByCompanyId(id: string) {
     return await this.employeeDb.find({
       where: { id: id },
@@ -63,7 +93,7 @@ export class EmployeeService {
 
   async remove(email: string) {
     const employee = await this.findByEmail(email);
-    return await this.employeeDb.delete(employee);
+    // return await this.employeeDb.delete(employee);
   }
 
   async activate(email: string, activateEmployeeDto: ActivateEmployeeDto) {
@@ -85,4 +115,97 @@ export class EmployeeService {
       throw new BadRequestException('Activation Error  ' + e.message);
     }
   }
+
+  async uploadFile(
+    file: Express.Multer.File,
+    user: IEmployeeDb,
+    createFileDto: UploadFileDto,
+  ) {
+    const employee = await this.employeeDb.findOne({
+      where: { email: user.email },
+      relations: { company: true },
+    });
+
+    const myCompany = employee.company.some(
+      (company) => company.id.toString() == createFileDto.companyId.toString(),
+    );
+    if (!myCompany) {
+      throw new ConflictException(
+        'You are not registered in this company to upload files companyId-> ' +
+          createFileDto.companyId,
+      );
+    }
+
+    const company = await this.companyDB.findOne({
+      where: { id: createFileDto.companyId },
+      relations: { subscription: true, files: true, employees: true },
+    });
+    const subPaln = await this.checkSubscription(company);
+    if (subPaln == PREMIUMSUB) {
+      await this.companyDB.update(
+        {
+          ballance:
+            company.ballance - company.subscription.exceeded_amount_price,
+        },
+        company,
+      );
+    }
+
+    const fileName = await this.wriefileOnDisc(file);
+    const url = HOST + ':' + PORT + '/uploads/' + fileName;
+    const newFileEntity = await this.fileDb.create({
+      name: fileName,
+      url,
+      employee: employee,
+      company: company,
+    });
+    await this.fileDb.save(newFileEntity);
+  }
+  async findAll() {
+    return await this.employeeDb.find({
+      relations: { files: true },
+    });
+  }
+  async checkSubscription(company: Company) {
+    const employees = company.employees.length;
+    const files = company.files.length;
+    const subscription = company.subscription;
+
+    if (subscription.name.toLocaleLowerCase() !== PREMIUMSUB) {
+      if (
+        employees > subscription.users_amount ||
+        files > subscription.files_amount
+      ) {
+        console.log('Payment Required');
+
+        throw new HttpException(
+          'Payment Required',
+          HttpStatus.PAYMENT_REQUIRED,
+        );
+      }
+
+      return subscription.name;
+    } else {
+      if (
+        subscription.name == PREMIUMSUB &&
+        files < subscription.files_amount
+      ) {
+        return subscription.name;
+      }
+    }
+  }
+
+  private async wriefileOnDisc(file: Express.Multer.File) {
+    const randomName = uuid() + file.originalname;
+    const pathToSave = path.resolve(process.cwd(), 'uploads', randomName);
+    try {
+      await promisify(writeFile)(pathToSave, file.buffer);
+      console.log('Successfully uploaded:', pathToSave);
+      return randomName;
+    } catch (err) {
+      throw new BadRequestException('File saving error: ' + err.message);
+    }
+  }
 }
+
+//

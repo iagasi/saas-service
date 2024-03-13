@@ -6,6 +6,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { connectionOptions } from './app.config';
 import { EmployeeModule } from './employee/employee.module';
 import { SubscriptionModule } from './subscription/subscription.module';
+import { join } from 'path';
+import { ServeStaticModule } from '@nestjs/serve-static';
 
 @Module({
   imports: [
@@ -16,6 +18,10 @@ import { SubscriptionModule } from './subscription/subscription.module';
     }),
     EmployeeModule,
     SubscriptionModule,
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..'),
+      renderPath: 'uploads',
+    }),
   ],
   controllers: [AppController],
   providers: [AppService],

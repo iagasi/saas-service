@@ -14,8 +14,8 @@ export class SubscriptionService {
     return 'This action adds a new subscription';
   }
 
-  findAll() {
-    return `This action returns all subscription`;
+  async findAll() {
+    return await this.subscribDb.find();
   }
 
   findOne(id: number) {

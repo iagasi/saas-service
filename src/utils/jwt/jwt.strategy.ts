@@ -3,10 +3,14 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { SECRET_JWT } from 'src/constants';
 import { CompanyService } from 'src/company/company.service';
+import { EmployeeService } from 'src/employee/employee.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private conpanyService: CompanyService) {
+  constructor(
+    private conpanyService: CompanyService,
+    private employeService: EmployeeService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -16,12 +20,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate({ id }: { id: string }) {
     const company = await this.conpanyService.findOne(id);
-
-    if (!company.active) {
+    const user = await this.employeService.findOne(id);
+    if (company && !company.active) {
       throw new ForbiddenException(
-        'Accaunt is not Activated got to login to receive Activation email one more time',
+        'Account is not Activated got to login to receive Activation email one more time',
       );
     }
-    return company;
+    if (user && !user.active) {
+      throw new ForbiddenException(
+        'Account is not Activated got to login to receive Activation email one more time',
+      );
+    }
+
+    return company ? company : user;
   }
 }

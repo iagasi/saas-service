@@ -25,6 +25,7 @@ import { EmployeeService } from 'src/employee/employee.service';
 import { Subscription } from '../subscription/entities/subscription.entity';
 import { SubscriptionService } from 'src/subscription/subscription.service';
 import { File } from 'src/employee/entities/file.entyty';
+import { Purchasedsubscription } from 'src/subscription/entities/purchased-subscription.entity';
 
 @Injectable()
 export class CompanyService {
@@ -37,12 +38,14 @@ export class CompanyService {
     private sRepository: Repository<Subscription>,
     @InjectRepository(File)
     private fRepository: Repository<File>,
+    @InjectRepository(Purchasedsubscription)
+    private purchasedsubscriptionRepository: Repository<File>,
     private employeeService: EmployeeService,
   ) {}
   private async findByEmail(email: string): Promise<Company> | never {
     const company = await this.companyRepository.findOne({
       where: { email: email },
-      relations: { subscription: true },
+      relations: { subscription: true, curr_subscription: true },
     });
 
     return company;
@@ -60,37 +63,87 @@ export class CompanyService {
     });
   }
   async getSubscription(company: ICompanyDb) {
-    return await this.companyRepository.findOne({
+    const yourCompany = await this.companyRepository.findOne({
       where: { id: company.id },
-      relations: { subscription: true },
+      relations: { subscription: true, curr_subscription: true },
     });
+    const allsubscriptions = await this.subscriptionService.findAll();
+    return {
+      yourCompany: yourCompany,
+      availableSunbscriptionToPurchase: allsubscriptions,
+    };
   }
-  async updateSubscription(company: ICompanyDb, subscription: any) {
+
+  async updateSubscription(company: ICompanyDb, subscriptionName: string) {
     const currCompany = await this.companyRepository.findOne({
       where: { id: company.id },
+      relations: { curr_subscription: true, subscription: true },
     });
-
-    try {
-      const subscriptionPlan = await this.subscriptionService.findByName(
-        subscription,
+    if (!currCompany) {
+      throw new NotFoundException('Company not fount or not Loggind in');
+    }
+    const subscriptionPlan = await this.subscriptionService.findByName(
+      subscriptionName,
+    );
+    if (!subscriptionPlan) {
+      throw new NotFoundException(
+        'Subscription with name  ' +
+          subscriptionName +
+          '  now found use <free,basic,premium>',
       );
-      console.log(subscriptionPlan);
+    }
+
+    if (
+      currCompany.subscription &&
+      currCompany.subscription.name.toLowerCase() ==
+        subscriptionName.toLowerCase()
+    ) {
+      throw new ConflictException(
+        'You already have Purchased subscription plan with name << ' +
+          subscriptionName +
+          '>>',
+      );
+    }
+    try {
+      if (currCompany.curr_subscription) {
+        this.removeSubscriptionfromCompany(currCompany);
+      }
+
+      const purchased = new Purchasedsubscription();
+      purchased.company = currCompany;
+      await this.purchasedsubscriptionRepository.save(purchased);
+
       await this.companyRepository.update(
         { id: currCompany.id },
-        { subscription: subscriptionPlan },
+        {
+          subscription: subscriptionPlan,
+          ballance: currCompany.ballance - subscriptionPlan.price,
+          curr_subscription: purchased,
+        },
       );
 
       return await this.findByEmail(company.email);
     } catch (e) {
       console.log(e.message);
+      throw new BadRequestException(e.message);
+    }
+  }
+  private async removeSubscriptionfromCompany(currCompany: Company) {
+    try {
+      const purchasedId = currCompany.curr_subscription.id;
+      currCompany.curr_subscription = null;
+      await this.companyRepository.save(currCompany);
 
-      if (e) {
-        throw new NotFoundException(
-          'Subscription with name  ' +
-            subscription +
-            '  now found use <free,basic,premiun>',
-        );
+      const currSubscription =
+        await this.purchasedsubscriptionRepository.findOne({
+          where: { id: purchasedId },
+        });
+
+      if (currSubscription) {
+        await this.purchasedsubscriptionRepository.remove(currSubscription);
       }
+    } catch (e) {
+      throw new BadRequestException(e.messgae);
     }
   }
   async createEmployee(employee: CreateEmployeeDto, company: ICompanyDb) {
@@ -128,7 +181,8 @@ export class CompanyService {
         currentCompany,
       );
     }
-    await this.userActivationEmail(
+    await userActivationEmail(employee.email, employee.email, company.email);
+    await userActivationEmail(
       employee.email,
       'nameagasi@gmail.com',
       company.email,
@@ -152,6 +206,10 @@ export class CompanyService {
       createCompanyDto.password = hashedPassword;
       await this.sendActivationEmail(
         createCompanyDto.email,
+        createCompanyDto.email,
+      );
+      await this.sendActivationEmail(
+        createCompanyDto.email,
         'nameagasi@gmail.com',
       );
       const created = await this.companyRepository.save(createCompanyDto);
@@ -170,7 +228,7 @@ export class CompanyService {
     if (!company.active) {
       this.sendActivationEmail(loginDto.email, 'nameagasi@gmail.com');
       throw new ForbiddenException(
-        'Accaunt not Activated an Additional email send too---' +
+        'Account not Activated an Additional email send too---' +
           loginDto.email,
       );
     }
@@ -187,7 +245,10 @@ export class CompanyService {
   }
 
   async findOne(id: string) {
-    return await this.companyRepository.findOne({ where: { id } });
+    return await this.companyRepository.findOne({
+      where: { id },
+      relations: { subscription: true, files: true, employees: true },
+    });
   }
 
   async update(
@@ -237,15 +298,15 @@ export class CompanyService {
       toEmail,
     );
   }
-  private async userActivationEmail(
-    userEmail: string,
-    toEmail: string,
-    companyEmail: string,
-  ) {
-    await emailservice(
-      'Complete registracion in company  ' + companyEmail,
-      `http://${HOST}:${PORT}/employee/activate/` + userEmail,
-      toEmail,
-    );
-  }
+}
+export async function userActivationEmail(
+  userEmail: string,
+  toEmail: string,
+  companyEmail: string,
+) {
+  await emailservice(
+    'Complete registracion in company  ' + companyEmail,
+    `http://${HOST}:${PORT}/employee/activate/` + userEmail,
+    toEmail,
+  );
 }

@@ -2,10 +2,12 @@ import * as bcrypt from 'bcrypt';
 import { ICompanyDb } from 'src/interfaces/company';
 import { getJwtTokens } from './jwt/generate.tokens';
 import { SALT } from 'src/constants';
+import { Employee } from 'src/employee/entities/employee.entity';
+import { Company } from 'src/company/entities/company.entity';
 
 export async function generateTokens(
   password: string,
-  candidate: Omit<ICompanyDb, 'subscription'>,
+  candidate: Company | Employee,
 ) {
   const checkPassword = await bcrypt.compare(password, candidate.password);
   if (!checkPassword) {
