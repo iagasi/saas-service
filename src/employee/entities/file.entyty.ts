@@ -7,6 +7,7 @@ import {
 } from 'typeorm';
 import { Company } from 'src/company/entities/company.entity';
 import { Employee } from './employee.entity';
+import { IsBoolean } from 'class-validator';
 
 @Entity()
 export class File {
@@ -23,7 +24,5 @@ export class File {
   @ManyToOne(() => Employee, (employe) => employe.files)
   employee: Employee;
   @Column('varchar', { array: true })
-  allowed: string[];
-  @Column({ default: true })
-  public: boolean;
+  access: string[];
 }

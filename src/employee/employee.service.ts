@@ -23,7 +23,7 @@ import { LoginEmployeeDto } from './dto/login.employee.dto';
 import { userActivationEmail } from 'src/company/company.service';
 import { IEmployeeDb } from 'src/interfaces/employee';
 import { UploadFileDto } from './dto/upload.file.dto';
-import { writeFile, writeFileSync } from 'fs';
+import { writeFile } from 'fs';
 import * as path from 'path';
 import * as uuid from 'uuid-random';
 import { promisify } from 'util';
@@ -125,7 +125,6 @@ export class EmployeeService {
       where: { email: user.email },
       relations: { company: true },
     });
-
     const myCompany = employee.company.some(
       (company) => company.id.toString() == createFileDto.companyId.toString(),
     );
@@ -140,16 +139,7 @@ export class EmployeeService {
       where: { id: createFileDto.companyId },
       relations: { subscription: true, files: true, employees: true },
     });
-    const subPaln = await this.checkSubscription(company);
-    if (subPaln == PREMIUMSUB) {
-      await this.companyDB.update(
-        {
-          ballance:
-            company.ballance - company.subscription.exceeded_amount_price,
-        },
-        company,
-      );
-    }
+    await this.checkSubscription(company);
 
     const fileName = await this.wriefileOnDisc(file);
     const url = HOST + ':' + PORT + '/uploads/' + fileName;
@@ -158,11 +148,14 @@ export class EmployeeService {
       url,
       employee: employee,
       company: company,
+      access: createFileDto.access,
     });
     await this.fileDb.save(newFileEntity);
+    return this.fileDb.findOne({ where: { id: newFileEntity.id } });
   }
-  async findAll() {
-    return await this.employeeDb.find({
+  async findAll(employee: Employee) {
+    return await this.employeeDb.findOne({
+      where: { id: employee.id },
       relations: { files: true },
     });
   }
@@ -171,30 +164,44 @@ export class EmployeeService {
     const files = company.files.length;
     const subscription = company.subscription;
 
-    if (subscription.name.toLocaleLowerCase() !== PREMIUMSUB) {
+    if (subscription.name !== PREMIUMSUB) {
       if (
         employees > subscription.users_amount ||
         files > subscription.files_amount
       ) {
-        console.log('Payment Required');
-
         throw new HttpException(
-          'Payment Required',
+          `Your Company Plan<<${subscription.name}>> Does not allows upload FIles`,
           HttpStatus.PAYMENT_REQUIRED,
         );
       }
-
-      return subscription.name;
-    } else {
-      if (
-        subscription.name == PREMIUMSUB &&
-        files < subscription.files_amount
-      ) {
-        return subscription.name;
+    } else if (subscription.name == PREMIUMSUB) {
+      if (files < subscription.files_amount) {
+      }
+      if (files < subscription.files_amount) {
+        await this.premiunToManyFiles(
+          company.id,
+          company.subscription.exceeded_amount_price,
+        );
       }
     }
   }
 
+  async premiunToManyFiles(companyId: string, mustToBEPayd: number) {
+    const company = await this.companyDB.findOne({ where: { id: companyId } });
+
+    try {
+      await this.companyDB.update(
+        {
+          ballance: company.ballance - mustToBEPayd,
+        },
+        company,
+      );
+    } catch (e) {
+      throw new ConflictException(
+        'Premium subscription  Exeeded files withdrawing money Error',
+      );
+    }
+  }
   private async wriefileOnDisc(file: Express.Multer.File) {
     const randomName = uuid() + file.originalname;
     const pathToSave = path.resolve(process.cwd(), 'uploads', randomName);
@@ -207,5 +214,4 @@ export class EmployeeService {
     }
   }
 }
-
 //

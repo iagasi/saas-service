@@ -8,7 +8,6 @@ import {
   Post,
   UseInterceptors,
   UploadedFile,
-  ParseFilePipe,
 } from '@nestjs/common';
 import { EmployeeService } from './employee.service';
 
@@ -19,9 +18,9 @@ import { LoginEmployeeDto } from './dto/login.employee.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from 'src/decorators/user.decorator';
 import { IEmployeeDb } from 'src/interfaces/employee';
-import { log } from 'console';
 import { FileTypeValidationPipe } from 'src/utils/file.validator';
 import { UploadFileDto } from './dto/upload.file.dto';
+import { Employee } from './entities/employee.entity';
 
 @Controller('employee')
 export class EmployeeController {
@@ -53,9 +52,9 @@ export class EmployeeController {
 
     return this.employeeService.activate(email, activateDto);
   }
-  @Get('all')
-  find() {
-    return this.employeeService.findAll();
+  @Get()
+  find(@CurrentUser() employee: Employee) {
+    return this.employeeService.findAll(employee);
   }
   @Get(':id')
   findOne(@Param('id') id: string) {

@@ -5,7 +5,5 @@ export class UploadFileDto {
   companyId: string;
   @IsNotEmpty()
   @IsArray()
-  allowedSee: string[];
-  @IsNotEmpty()
-  public: boolean;
+  access: string[];
 }

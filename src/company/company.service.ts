@@ -15,7 +15,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Company } from './entities/company.entity';
 import { Repository } from 'typeorm';
 import { emailservice } from 'src/utils/sendEmail';
-import { HOST, PORT } from 'src/constants';
+import { BASICSUB, FREESUB, HOST, PORT, PREMIUMSUB } from 'src/constants';
 import { SucessResponse } from 'src/responses/sucessResponse';
 import { LoginDto } from 'src/dto/login.dto';
 import { generateHash, generateTokens } from 'src/utils/bcrypt.util';
@@ -148,7 +148,7 @@ export class CompanyService {
   }
   async createEmployee(employee: CreateEmployeeDto, company: ICompanyDb) {
     const currentCompany = await this.companyRepository.findOne({
-      relations: { employees: true, subscription: true },
+      relations: { employees: true, subscription: true, files: true },
       where: { id: company.id },
     });
     if (!currentCompany.subscription) {
@@ -168,14 +168,21 @@ export class CompanyService {
     }
     const currentSubPlan = currentCompany.subscription;
     if (
-      (currentSubPlan.name == 'Free' || currentSubPlan.name == 'Basic') &&
+      (currentSubPlan.name == FREESUB || currentSubPlan.name == BASICSUB) &&
       currentCompany.employees.length >= currentSubPlan.users_amount
     ) {
       throw new HttpException('Payment Required', HttpStatus.PAYMENT_REQUIRED);
     } else if (
-      currentSubPlan.name == 'Premium' &&
-      currentCompany.employees.length >= currentSubPlan.users_amount
+      currentSubPlan.name == PREMIUMSUB &&
+      currentCompany.files.length >= currentSubPlan.files_amount
     ) {
+      // console.log(currentCompany.employees.length);
+
+      // console.log(currentSubPlan.users_amount);
+      // console.log(currentSubPlan);
+
+      // console.log('here');
+
       await this.companyRepository.update(
         { ballance: currentCompany.ballance - amountMustBeWithdrawed },
         currentCompany,
@@ -239,9 +246,15 @@ export class CompanyService {
     return new SucessResponse('ok', tokens);
   }
   async findAll() {
-    return await this.companyRepository.find({
+    const allCompanies = await this.companyRepository.find({
       relations: { employees: true, subscription: true },
     });
+    const newallCompanies = allCompanies.map((c) => {
+      const { password, ...newCompany } = c;
+      return newCompany;
+    });
+
+    return newallCompanies;
   }
 
   async findOne(id: string) {

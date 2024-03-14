@@ -11,7 +11,6 @@ export class FileTypeValidationPipe implements PipeTransform {
     if (!value || !value.mimetype) {
       throw new UnprocessableEntityException('File not provided');
     }
-    console.log(value.mimetype);
 
     const allowedTypes = [
       'text/csv',

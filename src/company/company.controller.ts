@@ -49,6 +49,11 @@ export class CompanyController {
   ) {
     return this.companyService.updateSubscription(company, id);
   }
+
+  @Get('/files')
+  getAllFiles(@AdminOnly() company: ICompanyDb) {
+    return this.companyService.findCompanyAllFiles(company.id);
+  }
   @Get('/subscribe')
   getSubscription(@AdminOnly() company: ICompanyDb) {
     return this.companyService.getSubscription(company);
@@ -61,7 +66,6 @@ export class CompanyController {
   @Get()
   async findOne(@Param('id') id: string) {
     const company = await this.companyService.findOne(id);
-    console.log(company);
 
     if (!company) {
       throw new NotFoundException('Company with id  ' + id + '  NOT found');
