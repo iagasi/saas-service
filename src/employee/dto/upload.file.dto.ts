@@ -1,7 +1,8 @@
-import { IsArray, IsEmail, IsNotEmpty } from 'class-validator';
+import { IsArray, IsNotEmpty, IsString } from 'class-validator';
 
 export class UploadFileDto {
   @IsNotEmpty()
+  @IsString()
   companyId: string;
   @IsNotEmpty()
   @IsArray()

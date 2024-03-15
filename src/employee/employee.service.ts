@@ -59,12 +59,22 @@ export class EmployeeService {
   }
   async create(createEmployeeDto: CreateEmployeeDto, company: Company) {
     try {
-      const employee = this.employeeDb.create({
-        email: createEmployeeDto.email,
-        name: createEmployeeDto.name,
+      const candidteEmployee = await this.employeeDb.findOne({
+        where: { email: createEmployeeDto.email },
+        relations: { company: true },
       });
-      employee.company = [company];
-      await this.employeeDb.save(employee);
+      let employee = null;
+      if (!candidteEmployee) {
+        employee = new Employee();
+        employee.email = createEmployeeDto.email;
+        employee.name = createEmployeeDto.name;
+        employee.company = [company];
+        await this.employeeDb.save(employee);
+      } else {
+        candidteEmployee.company.push(company);
+        await this.employeeDb.save(candidteEmployee);
+      }
+
       return await this.findByEmail(createEmployeeDto.email);
     } catch (e) {
       throw new BadRequestException('Employee Creation Error' + e.message);
@@ -91,9 +101,20 @@ export class EmployeeService {
     return `This action updates a #${id} employee`;
   }
 
-  async remove(email: string) {
-    const employee = await this.findByEmail(email);
-    // return await this.employeeDb.delete(employee);
+  async remove(id: string) {
+    const employee = await this.employeeDb.findOne({
+      where: { id },
+      relations: { files: true },
+    });
+    const files = await this.fileDb.find({
+      where: { employee: employee },
+      relations: { employee: true },
+    });
+
+    files.forEach((f) => (f.employee = null));
+    await this.fileDb.save(files);
+
+    await this.employeeDb.remove(employee);
   }
 
   async activate(email: string, activateEmployeeDto: ActivateEmployeeDto) {
@@ -125,20 +146,27 @@ export class EmployeeService {
       where: { email: user.email },
       relations: { company: true },
     });
-    const myCompany = employee.company.some(
-      (company) => company.id.toString() == createFileDto.companyId.toString(),
-    );
-    if (!myCompany) {
-      throw new ConflictException(
-        'You are not registered in this company to upload files companyId-> ' +
+
+    if (!employee.company.length) {
+      throw new NotFoundException(
+        'You are not registered in this company to upload files > ',
+      );
+    }
+    if (!employee.company.find((c) => c.id == createFileDto.companyId)) {
+      throw new BadRequestException(
+        'You are not allowed upload in thos company with id ->  ' +
           createFileDto.companyId,
       );
     }
-
     const company = await this.companyDB.findOne({
       where: { id: createFileDto.companyId },
       relations: { subscription: true, files: true, employees: true },
     });
+
+    if (!company) {
+      throw new NotFoundException(' Wrong companyId ');
+    }
+
     await this.checkSubscription(company);
 
     const fileName = await this.wriefileOnDisc(file);
@@ -163,6 +191,12 @@ export class EmployeeService {
     const employees = company.employees.length;
     const files = company.files.length;
     const subscription = company.subscription;
+    if (!company.subscription) {
+      throw new HttpException(
+        'Plesae purchase subscription',
+        HttpStatus.PAYMENT_REQUIRED,
+      );
+    }
 
     if (subscription.name !== PREMIUMSUB) {
       if (
@@ -192,7 +226,7 @@ export class EmployeeService {
     try {
       await this.companyDB.update(
         {
-          ballance: company.ballance - mustToBEPayd,
+          billing: company.billing + mustToBEPayd,
         },
         company,
       );

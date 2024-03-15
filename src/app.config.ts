@@ -1,4 +1,4 @@
-import { DataSourceOptions, createConnection } from 'typeorm';
+import { DataSourceOptions, Repository } from 'typeorm';
 import { DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT } from './constants';
 import {
   ISubscriptionDB,
@@ -26,42 +26,35 @@ export const connectionOptions: DataSourceOptions = {
     Employee,
   ],
 };
-export async function runApplication() {
-  try {
-    const connection = await createConnection(connectionOptions);
-    const subcribeRepository = connection.getRepository(Subscription);
 
-    // Create and save users..
-    const subscribtions = await subcribeRepository.find();
-    if (subscribtions.length) return;
-    const usersToInsert: Array<Omit<ISubscriptionDB, 'id'>> = [
-      {
-        name: 'Free',
-        price: 0,
-        files_amount: 10,
-        users_amount: 1,
-        exceeded_amount_price: 0,
-      },
-      {
-        name: 'Basic',
-        price: 5,
-        files_amount: 100,
-        users_amount: 10,
-        exceeded_amount_price: 0,
-      },
-      {
-        name: 'Premium',
-        price: 300,
-        files_amount: 1000,
-        users_amount: null,
-        exceeded_amount_price: 0.5,
-      },
-    ];
+export async function fillSubscriptions(
+  subcribeRepository: Repository<Subscription>,
+) {
+  const subscribtions = await subcribeRepository.find();
+  if (subscribtions.length) return;
+  const usersToInsert: Array<Omit<ISubscriptionDB, 'id'>> = [
+    {
+      name: 'Free',
+      price: 0,
+      files_amount: 10,
+      users_amount: 1,
+      exceeded_amount_price: 0,
+    },
+    {
+      name: 'Basic',
+      price: 5,
+      files_amount: 100,
+      users_amount: 10,
+      exceeded_amount_price: 0,
+    },
+    {
+      name: 'Premium',
+      price: 300,
+      files_amount: 1000,
+      users_amount: null,
+      exceeded_amount_price: 0.5,
+    },
+  ];
 
-    await subcribeRepository.save(usersToInsert);
-    await connection.close();
-  } catch (error) {
-    console.error('Error during application startup:', error);
-  }
+  await subcribeRepository.save(usersToInsert);
 }
-runApplication();

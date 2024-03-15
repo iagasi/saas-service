@@ -48,8 +48,6 @@ export class EmployeeController {
     @Param('email') email: string,
     @Body() activateDto: ActivateEmployeeDto,
   ) {
-    console.log(activateDto);
-
     return this.employeeService.activate(email, activateDto);
   }
   @Get()

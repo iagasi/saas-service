@@ -7,6 +7,7 @@ import {
   OneToMany,
   ManyToMany,
   JoinTable,
+  ManyToOne,
 } from 'typeorm';
 import { Subscription } from '../../subscription/entities/subscription.entity';
 import { File } from 'src/employee/entities/file.entyty';
@@ -32,8 +33,8 @@ export class Company {
   industry: string;
   @Column({ default: 'ADMIN' })
   role: string;
-  @Column('decimal', { default: 10000 })
-  ballance: number;
+  @Column('decimal', { default: 0 })
+  billing: number;
 
   @OneToMany(() => File, (file) => file.company)
   files: File[];
@@ -42,7 +43,7 @@ export class Company {
   @JoinTable()
   employees: Employee[];
 
-  @OneToOne(() => Subscription)
+  @ManyToOne(() => Subscription)
   @JoinColumn()
   subscription: Subscription;
   @OneToOne(() => Purchasedsubscription)

@@ -4,6 +4,8 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { SECRET_JWT } from 'src/constants';
 import { CompanyService } from 'src/company/company.service';
 import { EmployeeService } from 'src/employee/employee.service';
+import { Company } from 'src/company/entities/company.entity';
+import { Employee } from 'src/employee/entities/employee.entity';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -18,10 +20,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate({ id }: { id: string }) {
-    const company = await this.conpanyService.findOne(id);
-    const user = await this.employeService.findOne(id);
-    if (company && !company.active) {
+  async validate(whois: Company | Employee) {
+    let user = null;
+
+    if (whois.role == 'ADMIN') {
+      user = await this.conpanyService.findOne(whois.id);
+    }
+    if (whois.role == 'USER') {
+      user = await this.employeService.findOne(whois.id);
+    }
+    if (user && !user.active) {
       throw new ForbiddenException(
         'Account is not Activated got to login to receive Activation email one more time',
       );
@@ -32,6 +40,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       );
     }
 
-    return company ? company : user;
+    return user;
   }
 }

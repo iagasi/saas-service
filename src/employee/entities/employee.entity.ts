@@ -4,13 +4,9 @@ import {
   Column,
   OneToMany,
   ManyToMany,
-  OneToOne,
-  JoinColumn,
 } from 'typeorm';
 import { Company } from 'src/company/entities/company.entity';
 import { File } from './file.entyty';
-import { Subscription } from 'src/subscription/entities/subscription.entity';
-import { Purchasedsubscription } from 'src/subscription/entities/purchased-subscription.entity';
 
 @Entity()
 export class Employee {

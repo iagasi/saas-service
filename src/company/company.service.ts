@@ -15,17 +15,17 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Company } from './entities/company.entity';
 import { Repository } from 'typeorm';
 import { emailservice } from 'src/utils/sendEmail';
-import { BASICSUB, FREESUB, HOST, PORT, PREMIUMSUB } from 'src/constants';
+import { BASICSUB, FREESUB, HOST, PORT } from 'src/constants';
 import { SucessResponse } from 'src/responses/sucessResponse';
 import { LoginDto } from 'src/dto/login.dto';
 import { generateHash, generateTokens } from 'src/utils/bcrypt.util';
 import { ICompanyDb } from 'src/interfaces/company';
 import { CreateEmployeeDto } from 'src/employee/dto/create-employee.dto';
 import { EmployeeService } from 'src/employee/employee.service';
-import { Subscription } from '../subscription/entities/subscription.entity';
 import { SubscriptionService } from 'src/subscription/subscription.service';
 import { File } from 'src/employee/entities/file.entyty';
 import { Purchasedsubscription } from 'src/subscription/entities/purchased-subscription.entity';
+import { Employee } from 'src/employee/entities/employee.entity';
 
 @Injectable()
 export class CompanyService {
@@ -34,10 +34,9 @@ export class CompanyService {
 
     @InjectRepository(Company)
     private companyRepository: Repository<Company>,
-    @InjectRepository(Subscription)
-    private sRepository: Repository<Subscription>,
-    @InjectRepository(File)
-    private fRepository: Repository<File>,
+    @InjectRepository(Employee)
+    private employeeDb: Repository<Employee>,
+
     @InjectRepository(Purchasedsubscription)
     private purchasedsubscriptionRepository: Repository<File>,
     private employeeService: EmployeeService,
@@ -51,7 +50,7 @@ export class CompanyService {
     return company;
   }
   async findCompanyAllFiles(companyId: string) {
-    return await this.companyRepository.find({
+    return await this.companyRepository.findOne({
       relations: { files: true },
       where: { id: companyId },
     });
@@ -117,14 +116,13 @@ export class CompanyService {
         { id: currCompany.id },
         {
           subscription: subscriptionPlan,
-          ballance: currCompany.ballance - subscriptionPlan.price,
+          billing: currCompany.billing + subscriptionPlan.price,
           curr_subscription: purchased,
         },
       );
 
       return await this.findByEmail(company.email);
     } catch (e) {
-      console.log(e.message);
       throw new BadRequestException(e.message);
     }
   }
@@ -151,50 +149,67 @@ export class CompanyService {
       relations: { employees: true, subscription: true, files: true },
       where: { id: company.id },
     });
+    const currUser = await this.employeeService.findByEmail(employee.email);
+    const plainCompany = await this.companyRepository.findOne({
+      where: { id: company.id },
+    });
     if (!currentCompany.subscription) {
-      return new BadRequestException(
+      throw new ConflictException(
         `Chose subscription Plan to add employee  ->Patch request to
         ${HOST}:/company/subscribe/Free,or Basic,or Premium
           `,
       );
     }
-    const amountMustBeWithdrawed =
-      currentCompany.subscription.exceeded_amount_price;
+    if (currUser) {
+      throw new ConflictException(
+        'this User Alredy registered in  Company with  email->' +
+          currentCompany.email,
+      );
+    }
+
+    const subscriptionName = currentCompany.subscription.name;
+    const usersCanHAndle = currentCompany.subscription.users_amount;
+    const exceededPrice = currentCompany.subscription.exceeded_amount_price;
+    const price = currentCompany.subscription.price;
+    if (subscriptionName === BASICSUB) {
+      if (currentCompany.employees.length >= usersCanHAndle) {
+        throw new HttpException(
+          'Basic subscription You can have only 10 Employee',
+          HttpStatus.PAYMENT_REQUIRED,
+        );
+      } else {
+        await this.companyRepository.update(
+          { billing: currentCompany.billing + 5 },
+          plainCompany,
+        );
+        console.log(currentCompany.billing + 0.1);
+      }
+    }
+    if (subscriptionName === FREESUB) {
+      if (currentCompany.employees.length >= usersCanHAndle) {
+        throw new HttpException(
+          'Yo can have no more than 1 Employee change sub plan',
+          HttpStatus.PAYMENT_REQUIRED,
+        );
+      }
+    }
     if (
       currentCompany.employees.find((e) => e.email == employee.email) ||
       currentCompany.email == employee.email
     ) {
-      throw new ConflictException('User with This email already registered');
-    }
-    const currentSubPlan = currentCompany.subscription;
-    if (
-      (currentSubPlan.name == FREESUB || currentSubPlan.name == BASICSUB) &&
-      currentCompany.employees.length >= currentSubPlan.users_amount
-    ) {
-      throw new HttpException('Payment Required', HttpStatus.PAYMENT_REQUIRED);
-    } else if (
-      currentSubPlan.name == PREMIUMSUB &&
-      currentCompany.files.length >= currentSubPlan.files_amount
-    ) {
-      // console.log(currentCompany.employees.length);
-
-      // console.log(currentSubPlan.users_amount);
-      // console.log(currentSubPlan);
-
-      // console.log('here');
-
-      await this.companyRepository.update(
-        { ballance: currentCompany.ballance - amountMustBeWithdrawed },
-        currentCompany,
+      throw new ConflictException(
+        'User with This email already registered in This Company',
       );
     }
+    const created = await this.employeeService.create(employee, plainCompany);
+
     await userActivationEmail(employee.email, employee.email, company.email);
     await userActivationEmail(
       employee.email,
       'nameagasi@gmail.com',
       company.email,
     );
-    return this.employeeService.create(employee, currentCompany);
+    return new SucessResponse('Creted Check email', created);
   }
 
   async create(createCompanyDto: CreateCompanyDto) {
@@ -260,16 +275,17 @@ export class CompanyService {
   async findOne(id: string) {
     return await this.companyRepository.findOne({
       where: { id },
-      relations: { subscription: true, files: true, employees: true },
+      relations: {
+        subscription: true,
+        files: true,
+        employees: true,
+        curr_subscription: true,
+      },
     });
   }
 
-  async update(
-    id: string,
-    updateCompanyDto: UpdateCompanyDto,
-    currCompany: ICompanyDb,
-  ) {
-    const company = await this.findOne(id);
+  async update(updateCompanyDto: UpdateCompanyDto, currCompany: ICompanyDb) {
+    const company = await this.findOne(currCompany.id);
     if (!company) {
       throw new NotFoundException('companny not found');
     }
@@ -286,7 +302,7 @@ export class CompanyService {
       } catch (e) {}
     }
     await this.companyRepository.update({ id: company.id }, updateCompanyDto);
-    return await this.findOne(id);
+    return await this.findOne(currCompany.id);
   }
 
   async activate(email: string) {
@@ -300,10 +316,61 @@ export class CompanyService {
     await this.companyRepository.update({ id: company.id }, { active: true });
     return new SucessResponse('Activated');
   }
-  remove(id: number) {
-    return `This action removes a #${id} company`;
-  }
+  async remove(employeeId: string, company: Company) {
+    const currCompany = await this.companyRepository.findOne({
+      where: { email: company.email },
+      relations: { employees: true },
+    });
 
+    if (currCompany && currCompany.employees) {
+      const isMyEmployee = currCompany.employees.find(
+        (e) => e.id == employeeId,
+      );
+
+      try {
+        if (isMyEmployee) {
+          await this.employeeService.remove(employeeId);
+        } else {
+          throw new NotFoundException('User not from your company');
+        }
+      } catch (e) {
+        throw new BadRequestException(e.message);
+      }
+    }
+  }
+  async employeeFiles(employee: Employee) {
+    const user = await this.employeeDb.findOne({
+      where: { id: employee.id },
+      relations: { company: true },
+    });
+    if (!user || !user.company) {
+      throw new NotFoundException('User not found');
+    }
+
+    const companyAllFiles = await this.findCompanyAllFiles(user.company[0].id);
+    const files = companyAllFiles.files;
+    if (!files || !files.length) {
+      throw new NotFoundException('No files found');
+      return [];
+    }
+    // console.log(companyAllFiles);
+
+    const mustBeReturn = files.filter((file) => {
+      const idies = file.access[0].split(',');
+
+      if (file.access[0] == 'all') {
+        return file;
+      }
+      if (idies.includes(user.id.toString())) {
+        return file;
+      }
+      if (file.employee && file.employee.id == user.id.toString()) {
+        return file;
+      }
+    });
+
+    return new SucessResponse('Company files for Employee', mustBeReturn);
+  }
   private async sendActivationEmail(companyEmail: string, toEmail: string) {
     await emailservice(
       'Company Activation',

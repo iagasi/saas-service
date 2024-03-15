@@ -18,6 +18,9 @@ import { SkipJwtAuth } from 'src/decorators/skip.decorator';
 import { ICompanyDb } from 'src/interfaces/company';
 import { AdminOnly } from 'src/decorators/admin.dcorator';
 import { CreateEmployeeDto } from 'src/employee/dto/create-employee.dto';
+import { CurrentUser } from 'src/decorators/user.decorator';
+import { Employee } from 'src/employee/entities/employee.entity';
+import { Company } from './entities/company.entity';
 @Controller('company')
 export class CompanyController {
   constructor(private readonly companyService: CompanyService) {}
@@ -33,7 +36,7 @@ export class CompanyController {
   login(@Body() createCompanyDto: LoginDto) {
     return this.companyService.login(createCompanyDto);
   }
-  //
+
   @Post('/employee')
   createUser(
     @Body() createUserDto: CreateEmployeeDto,
@@ -41,7 +44,17 @@ export class CompanyController {
   ) {
     return this.companyService.createEmployee(createUserDto, company);
   }
-
+  @Get('/for-employee-files/')
+  employeeFiles(@CurrentUser() employee: Employee) {
+    return this.companyService.employeeFiles(employee);
+  }
+  @Patch()
+  update(
+    @Body() updateCompanyDto: UpdateCompanyDto,
+    @AdminOnly() company: ICompanyDb,
+  ) {
+    return this.companyService.update(updateCompanyDto, company);
+  }
   @Patch('/subscribe/:id')
   updateSubscriptions(
     @Param('id') id: ICompanyDb['subscription'],
@@ -73,15 +86,6 @@ export class CompanyController {
     return company;
   }
 
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateCompanyDto: UpdateCompanyDto,
-    @AdminOnly() company: ICompanyDb,
-  ) {
-    return this.companyService.update(id, updateCompanyDto, company);
-  }
-
   @Get('activate/:email')
   @SkipJwtAuth()
   @Render('index')
@@ -97,8 +101,8 @@ export class CompanyController {
   activate(@Param('email') email: string) {
     return this.companyService.activate(email);
   }
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.companyService.remove(+id);
+  @Delete('employee/:id')
+  remove(@Param('id') id: string, @AdminOnly() company: Company) {
+    return this.companyService.remove(id, company);
   }
 }

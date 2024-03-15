@@ -1,13 +1,6 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  ManyToMany,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { Company } from 'src/company/entities/company.entity';
 import { Employee } from './employee.entity';
-import { IsBoolean } from 'class-validator';
 
 @Entity()
 export class File {

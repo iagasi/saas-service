@@ -15,6 +15,7 @@ export const CurrentUser = createParamDecorator(
     if (!user.active) {
       throw new UnauthorizedException('Account not activated check email');
     }
+
     if (user.role !== 'USER') {
       throw new BadRequestException('Only Employees');
     }

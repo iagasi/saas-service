@@ -3,6 +3,7 @@ import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Subscription } from './entities/subscription.entity';
 import { ILike, Repository } from 'typeorm';
+import { fillSubscriptions } from 'src/app.config';
 
 @Injectable()
 export class SubscriptionService {
@@ -10,27 +11,19 @@ export class SubscriptionService {
     @InjectRepository(Subscription)
     private subscribDb: Repository<Subscription>,
   ) {}
-  create(createSubscriptionDto: CreateSubscriptionDto) {
-    return 'This action adds a new subscription';
-  }
 
   async findAll() {
+    await fillSubscriptions(this.subscribDb);
+
     return await this.subscribDb.find();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} subscription`;
-  }
-
   async findByName(name: string) {
+    await fillSubscriptions(this.subscribDb);
     const subscr = await this.subscribDb.findOne({
       where: { name: ILike(name) },
     });
 
     return subscr;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} subscription`;
   }
 }
