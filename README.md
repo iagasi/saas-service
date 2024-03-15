@@ -111,5 +111,3 @@ file:.csv.xls,
 companyId: where to upload
 access[]:  1,3,4     or   all        -------users who can see file or all for (full access)
 }
-
-
