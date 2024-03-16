@@ -4,7 +4,7 @@ change in .env files Postgress password
 ---------------------------
 
 
-REGISTRaION       -Company
+REGISTRATION       -Company
 ---------------------------------------------
 1.     POST:      http://localhost:3000/company/
      req Body       
