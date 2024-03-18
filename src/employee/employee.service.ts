@@ -43,7 +43,7 @@ export class EmployeeService {
 
   async login(loginDto: LoginEmployeeDto) {
     const user = await this.findByEmail(loginDto.email);
-    if (!user) throw new NotFoundException('Company is not registered');
+    if (!user) throw new NotFoundException('Employee not registered');
     if (!user.active) {
       userActivationEmail(loginDto.email, loginDto.email, ' company');
       throw new ForbiddenException(

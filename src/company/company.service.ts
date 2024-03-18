@@ -78,6 +78,7 @@ export class CompanyService {
       where: { id: company.id },
       relations: { curr_subscription: true, subscription: true },
     });
+
     if (!currCompany) {
       throw new NotFoundException('Company not fount or not Loggind in');
     }
@@ -116,7 +117,7 @@ export class CompanyService {
         { id: currCompany.id },
         {
           subscription: subscriptionPlan,
-          billing: currCompany.billing + subscriptionPlan.price,
+          billing: +currCompany.billing + subscriptionPlan.price,
           curr_subscription: purchased,
         },
       );
