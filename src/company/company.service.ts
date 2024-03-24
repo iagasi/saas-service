@@ -205,16 +205,17 @@ export class CompanyService {
     const created = await this.employeeService.create(employee, plainCompany);
 
     await userActivationEmail(employee.email, employee.email, company.email);
-    await userActivationEmail(
-      employee.email,
-      'nameagasi@gmail.com',
-      company.email,
-    );
+    // await userActivationEmail(
+    //   employee.email,
+    //   'nameagasi@gmail.com',
+    //   company.email,
+    // );
     return new SucessResponse('Creted Check email', created);
   }
 
   async create(createCompanyDto: CreateCompanyDto) {
     const company = await this.findByEmail(createCompanyDto.email);
+    const user = await this.employeeService.findByEmail(createCompanyDto.email);
     if (company) {
       throw new ConflictException(
         'The company with email---' +
@@ -222,7 +223,13 @@ export class CompanyService {
           '--already exists',
       );
     }
-
+    if (user) {
+      throw new ConflictException(
+        'The EMPLOYEE with email---' +
+          createCompanyDto.email +
+          '--already exists',
+      );
+    }
     try {
       const hashedPassword = await generateHash(createCompanyDto.password);
 
@@ -231,10 +238,10 @@ export class CompanyService {
         createCompanyDto.email,
         createCompanyDto.email,
       );
-      await this.sendActivationEmail(
-        createCompanyDto.email,
-        'nameagasi@gmail.com',
-      );
+      // await this.sendActivationEmail(
+      //   createCompanyDto.email,
+      //   'nameagasi@gmail.com',
+      // );
       const created = await this.companyRepository.save(createCompanyDto);
       return new SucessResponse(
         'Registered check email to ACTIVATE!!',
@@ -327,13 +334,12 @@ export class CompanyService {
       const isMyEmployee = currCompany.employees.find(
         (e) => e.id == employeeId,
       );
+      if (!isMyEmployee) {
+        throw new NotFoundException('User not from your company');
+      }
 
       try {
-        if (isMyEmployee) {
-          await this.employeeService.remove(employeeId);
-        } else {
-          throw new NotFoundException('User not from your company');
-        }
+        await this.employeeService.remove(employeeId);
       } catch (e) {
         throw new BadRequestException(e.message);
       }
@@ -342,7 +348,7 @@ export class CompanyService {
   async employeeFiles(employee: Employee) {
     const user = await this.employeeDb.findOne({
       where: { id: employee.id },
-      relations: { company: true },
+      relations: { company: true, files: true },
     });
     if (!user || !user.company) {
       throw new NotFoundException('User not found');
@@ -356,7 +362,7 @@ export class CompanyService {
     }
     // console.log(companyAllFiles);
 
-    const mustBeReturn = files.filter((file) => {
+    const acessibleForYou = files.filter((file) => {
       const idies = file.access[0].split(',');
 
       if (file.access[0] == 'all') {
@@ -365,12 +371,18 @@ export class CompanyService {
       if (idies.includes(user.id.toString())) {
         return file;
       }
-      if (file.employee && file.employee.id == user.id.toString()) {
-        return file;
-      }
     });
-
-    return new SucessResponse('Company files for Employee', mustBeReturn);
+    const deleteDulicats = acessibleForYou.filter(
+      (file) => !user.files.find((f) => f.id == file.id),
+    );
+    const returnPublicAndyourFiles = {
+      yourUploadedFiles: user.files,
+      visibleForYouFiles: deleteDulicats,
+    };
+    return new SucessResponse(
+      'Company files for Employee',
+      returnPublicAndyourFiles,
+    );
   }
   private async sendActivationEmail(companyEmail: string, toEmail: string) {
     await emailservice(
